@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ar" class="h-full m-0">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nasro VIP - Name Login</title>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script> 
+<style>
+    .me::after{
+        content: ''; border-top: 0 solid transparent; border-left: 15px solid #e4ffc9;
+        border-bottom: 15px solid transparent; position: absolute; right: -12px; top: 0px;
+    }
+    .user::before{
+        content: ''; border-top: 0 solid transparent; border-right: 15px solid #ffff;
+        border-bottom: 15px solid transparent; position: absolute; left: -12px; top: 0px;
+    }
+</style>
+</head>
+<body class="h-full m-0" dir="rtl">
+    <div id="chat-container" class="h-full bg-gray-200 bg-contain">
+        
+        <div id="SignUp" class="w-96 h-12 max-w-full absolute m-auto inset-0 flex flex-col items-center gap-4">
+            <input type="text" id="myUserId" placeholder="أدخل اسمك المستعار (مثلاً: nasro_vip)"
+            class="bg-white w-full p-3 rounded-lg shadow-md text-center outline-none border-2 border-green-600">
+            <button onclick="startConnection()" 
+            class="bg-green-600 w-full py-2 px-6 cursor-pointer rounded-md text-white font-bold hover:bg-green-700"> 
+                دخول التطبيق 
+            </button>
+        </div>
+
+        <div id="Ringing_Screen" class="flex hidden flex-col bg-black min-h-screen w-full absolute m-auto inset-0 z-10">
+            <div class="flex-1 flex flex-col w-[600px] max-w-full m-auto text-center">
+                <div class="h-30 w-30 bg-gray-700 rounded-full flex items-center justify-center mx-auto mt-20 animate-pulse">
+                    <span class="text-white text-4xl">👤</span>
+                </div>
+                <audio id="ringtone" src="https://www.soundjay.com/phone/phone-calling-1.mp3" loop ></audio>
+                <h1 id="ringingText" class="text-white mt-10 text-3xl font-bold">يرن...</h1>
+                <div class="flex justify-center gap-10 mt-20">
+                    <button class="bg-red-600 p-5 cursor-pointer rounded-full" onclick="closeRingingScreen()"> 
+                        <span class="text-white text-2xl">❌</span>
+                    </button>
+                    <button class="bg-green-600 p-5 cursor-pointer rounded-full" id="acceptCallButton">
+                        <span class="text-white text-2xl">✅</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="call_screen" class="hidden bg-black absolute inset-0 z-10">
+            <div class="flex flex-col bg-black min-h-screen w-[600px] max-w-full m-auto">
+                <div id="Calling_screen" class="flex-1 flex flex-col items-center justify-center">
+                    <h1 class="text-white text-3xl animate-bounce">جاري الاتصال...</h1>
+                </div>
+                <div id="audio_screen" class="hidden flex-1 flex flex-col items-center justify-center bg-gray-800">
+                    <span class="text-9xl">📞</span>
+                    <audio id="remote_user_audio" autoplay></audio>
+                </div>
+                <div id="videos_screen" class="hidden flex-1 flex flex-col p-2 gap-2">
+                    <video id="remote_user_video" class="flex-1 bg-gray-900 rounded-lg mirror" autoplay playsinline></video>
+                    <video id="my_video" class="h-40 w-30 absolute top-4 right-4 bg-gray-800 rounded-lg border-2 border-white" muted autoplay playsinline></video>
+                </div>
+                <button class="bg-red-600 p-4 cursor-pointer w-fit mx-auto my-6 rounded-full" onclick="closeCall()"> 
+                    <span class="text-white text-xl">إنهاء المكالمة</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="StartChat" class="hidden h-12 absolute m-auto inset-0 flex w-[600px] max-w-full px-4">
+            <input type="text" id="remoteUserId" placeholder="أدخل اسم الشخص الذي تريد محادثته"
+            class="bg-white flex-1 p-3 rounded-r-lg border-2 border-green-800 outline-none text-right">
+            <button onclick="connectToRemoteUser()" 
+            class="bg-[#075e54] py-1 px-5 cursor-pointer rounded-l-lg text-white font-bold"> ابدأ المحادثة </button>
+        </div>
+
+        <div id="chat" class="hidden min-h-screen flex flex-col w-[600px] max-w-full m-auto bg-gray-100 shadow-2xl">
+            <div id="chat-header" class="px-4 py-3 flex items-center text-white bg-[#075e54]">
+                <p id="connectionID" class="text-xl font-bold flex-1 text-right m-0"></p>
+                <div class="flex gap-4">
+                    <button onclick="call('Audio')" class="text-2xl">📞</button>
+                    <button onclick="call('Video')" class="text-2xl">📹</button>
+                </div>
+            </div>
+            <div id="messages" class="flex-1 overflow-y-auto p-4 flex flex-col bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')]"></div>
+            <div id="message-input" class="w-full p-3 bg-gray-200 flex gap-2">
+                <input type="text" id="message" placeholder="اكتب رسالتك هنا..." class="bg-white flex-1 p-3 rounded-full outline-none text-right">
+                <button class="p-3 bg-[#075e54] text-white rounded-full" onclick="sendMessage()"> ارسل </button>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+    var peerConnection;
+    var RemoteUserConnection;
+    var myStream;
+    var CallConnection;
+
+    // الدخول بالاسم بدلاً من الرقم
+    function startConnection(){
+        const connectionId = document.getElementById("myUserId").value.trim();
+        if(!connectionId || connectionId.length < 3){
+            return alert("يرجى إدخال اسم صحيح مكون من 3 أحرف على الأقل");
+        }
+        
+        // استخدام الاسم كمعرف للـ Peer
+        peerConnection = new Peer(connectionId);
+        
+        peerConnection.on("error",(e)=>{
+            if(e.type === 'unavailable-id') alert("هذا الاسم مستخدم حالياً، اختر اسماً آخر");
+            else alert("خطأ: " + e.message);
+        });
+
+        peerConnection.on("open",()=>{
+            document.getElementById("SignUp").classList.add("hidden");
+            const StartChat = document.getElementById("StartChat");
+            StartChat.classList.add("flex");
+            StartChat.classList.remove("hidden");
+        });
+
+        peerConnection.on("connection",gotConnection);
+        peerConnection.on("call",(call)=>{ ringing(call) });
+    }
+
+    function connectToRemoteUser(){
+        const remoteUserConnectionId = document.getElementById("remoteUserId").value.trim();
+        if(!remoteUserConnectionId) return;
+        const myConnection = peerConnection.connect(remoteUserConnectionId);
+        gotConnection(myConnection);
+    }
+
+    // بقية الوظائف الأساسية كما هي في الكود الأصلي لضمان عمل المكالمات
+    function gotConnection(connection) {
+        RemoteUserConnection = connection;
+        RemoteUserConnection.on("open",()=>{
+            document.getElementById("connectionID").textContent =  RemoteUserConnection.peer;
+            document.getElementById("StartChat").classList.add("hidden");
+            writeMessage('system','متصل الآن مع: ' + RemoteUserConnection.peer);
+            document.getElementById("chat").classList.remove("hidden");
+            document.getElementById("chat").classList.add("flex");
+
+            RemoteUserConnection.on("data",(data)=>{ writeMessage('user',data) });
+            RemoteUserConnection.on("close",disconnectRemoteUser);
+        });
+    }
+
+    function sendMessage() {
+        const msgInput = document.getElementById("message");
+        if(!msgInput.value) return;
+        RemoteUserConnection.send(msgInput.value);
+        writeMessage('me', msgInput.value);
+        msgInput.value = '';
+    }
+
+    function writeMessage(sender,messageText){
+        const msgElement = document.createElement('p');
+        msgElement.textContent = messageText;
+        if(sender === 'me'){
+            msgElement.classList.add(...['me','my-1','mr-auto','px-4','py-2','bg-[#e4ffc9]','w-fit','rounded','relative','text-right']);
+        }else if(sender === 'user'){
+            msgElement.classList.add(...['user','my-1','ml-auto','px-4','py-2','bg-white','w-fit','rounded','relative','text-right']);
+        }else{
+            msgElement.classList.add(...['my-1','mx-auto','px-4','py-2','bg-blue-100','w-fit','rounded','text-sm','text-blue-800']);
+        }
+        document.getElementById("messages").appendChild(msgElement);
+        document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
+    }
+
+    function ringing(call) {
+        document.getElementById("Ringing_Screen").classList.remove("hidden");
+        document.getElementById('ringtone').play();
+        document.getElementById("ringingText").textContent = call.peer + " يتصل بك (" + (call.metadata.streamType === 'Video' ? 'فيديو' : 'صوت') + ")";
+        document.getElementById("acceptCallButton").onclick = ()=> acceptCall(call);
+    }
+
+    function acceptCall(call){
+        askForPermissions(call.metadata.streamType, ()=>{
+            closeRingingScreen();
+            call.answer(myStream);
+            gotCall(call);
+        });
+    }
+
+    function askForPermissions(type, cb) {
+        const constraints = { audio: true };
+        if(type === 'Video') constraints.video = { facingMode: "user" };
+        navigator.mediaDevices.getUserMedia(constraints).then((stream)=>{
+            myStream = stream;
+            cb();
+        }).catch(()=> alert("يرجى تفعيل صلاحيات الكاميرا والميكروفون"));
+    }
+
+    function call(type) {
+        askForPermissions(type, ()=>{
+            const call = peerConnection.call(RemoteUserConnection.peer, myStream, { metadata: { streamType: type } });
+            gotCall(call);
+        });
+    }
+
+    function gotCall(call){
+        CallConnection = call;
+        document.getElementById("call_screen").classList.remove("hidden");
+        CallConnection.on("stream",(remoteStream)=>{
+            document.getElementById("Calling_screen").classList.add("hidden");
+            if(CallConnection.metadata.streamType === 'Video'){
+                document.getElementById("videos_screen").classList.remove("hidden");
+                document.getElementById("remote_user_video").srcObject = remoteStream;
+                document.getElementById("my_video").srcObject = myStream;
+            }else{
+                document.getElementById("audio_screen").classList.remove("hidden");
+                document.getElementById("remote_user_audio").srcObject = remoteStream;
+            }
+        });
+        CallConnection.on("close", removeCallScreen);
+    }
+
+    function closeCall() { CallConnection.close(); removeCallScreen(); }
+    function closeRingingScreen(){ document.getElementById("Ringing_Screen").classList.add("hidden"); document.getElementById('ringtone').pause(); }
+    function disconnectRemoteUser(){ writeMessage('system','انتهى الاتصال مع ' + RemoteUserConnection.peer); RemoteUserConnection = null; }
+
+    function removeCallScreen(){
+        document.getElementById("call_screen").classList.add("hidden");
+        document.getElementById("videos_screen").classList.add("hidden");
+        document.getElementById("audio_screen").classList.add("hidden");
+        if(myStream) myStream.getTracks().forEach(track => track.stop());
+        CallConnection = null;
+    }
+</script>
+</body>
+                  </html>
