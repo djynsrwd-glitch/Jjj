@@ -1,268 +1,358 @@
 <!DOCTYPE html>
-<html lang="ar" class="h-full m-0">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nasro VIP - Fixed Voice</title>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <script src="https://unpkg.com/@tailwindcss/browser@4"></script> 
-<style>
-    body { background-color: #000; color: white; overflow: hidden; }
-    .me::after{ content: ''; border-top: 0 solid transparent; border-left: 15px solid #e4ffc9; border-bottom: 15px solid transparent; position: absolute; right: -12px; top: 0px; }
-    .user::before{ content: ''; border-top: 0 solid transparent; border-right: 15px solid #ffff; border-bottom: 15px solid transparent; position: absolute; left: -12px; top: 0px; }
-    .calc-btn { background: #333; color: white; border-radius: 50%; height: 70px; width: 70px; font-size: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
-    .calc-btn:active { background: #666; }
-    .calc-orange { background: #ff9f0a; }
-    #messages::-webkit-scrollbar { width: 5px; }
-    #messages::-webkit-scrollbar-thumb { background: #075e54; border-radius: 10px; }
-</style>
+    <title>Nasro VIP - Pro Optimized</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        :root { 
+            --p-dark: #ff1f4b; 
+            --p-mid: #ff4d6d; 
+            --bg-glass: rgba(0, 0, 0, 0.85); 
+            --me-bg: #25d366;
+            --other-bg: #262626;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: #000; overflow: hidden; height: 100vh; color: white; }
+
+        /* الحاسبة */
+        #calc-screen { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100vh; padding-bottom: 50px; background: #000; position: relative; z-index: 1000; transition: 0.5s; }
+        #display { width: 100%; max-width: 350px; text-align: right; font-size: 80px; color: white; padding: 0 30px; min-height: 100px; }
+        .buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; width: 100%; max-width: 350px; padding: 10px; }
+        .btn { height: 75px; width: 75px; border-radius: 50%; border: none; font-size: 30px; color: white; background: #333; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .btn:active { transform: scale(0.9); background: #555; }
+        .orange { background: #ff9f0a; } 
+        .gray { background: #a5a5a5; color: black; }
+        .zero { width: 162px; border-radius: 40px; justify-content: flex-start; padding-left: 30px; grid-column: span 2; }
+
+        /* الدردشة */
+        #chat-ui { display: none; height: 100vh; flex-direction: column; position: relative; background: #0e0e0e; }
+        #layer-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('https://image2url.com/r2/default/images/1770449811893-f461bec6-24f2-48fd-b92b-59a5ba56bf71.jpg'); background-size: cover; background-position: center; z-index: 0; filter: brightness(0.4); }
+        
+        .header { background: var(--bg-glass); padding: 15px; display: flex; justify-content: space-between; align-items: center; z-index: 10; border-bottom: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
+        .header-title { text-align: center; flex: 1; }
+        #typing-status { font-size: 13px; color: #adff2f; font-weight: bold; height: 18px; text-shadow: 0 0 5px rgba(173, 255, 47, 0.5); }
+
+        #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; z-index: 2; scroll-behavior: smooth; }
+        .bubble { padding: 10px 15px; border-radius: 18px; max-width: 85%; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.3); line-height: 1.4; animation: fadeIn 0.3s ease; word-wrap: break-word; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .me { align-self: flex-end; background: var(--me-bg); color: white; border-bottom-right-radius: 4px; }
+        .other { align-self: flex-start; background: var(--other-bg); color: white; border-bottom-left-radius: 4px; }
+
+        .footer { background: rgba(0, 0, 0, 0.9); padding: 12px; z-index: 10; backdrop-filter: blur(10px); }
+        .input-area { display: flex; align-items: center; gap: 10px; width: 100%; }
+        .input-box { flex: 1; background: rgba(255,255,255,0.1); border-radius: 25px; height: 45px; display: flex; align-items: center; padding: 0 15px; border: 1px solid rgba(255,255,255,0.1); }
+        .input-box input { flex: 1; border: none; outline: none; background: transparent; color: white; font-size: 16px; }
+        
+        .bottom-icons { display: flex; gap: 15px; align-items: center; }
+        .icon-item { font-size: 22px; cursor: pointer; transition: 0.2s; }
+        .icon-item:hover { transform: scale(1.1); }
+
+        #sendBtn, #recBtn { background: var(--p-dark); color: white; width: 45px; height: 45px; border-radius: 50%; border: none; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(255, 31, 75, 0.3); }
+        #recBtn.recording { background: #ff3b30; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% {transform: scale(1);} 50% {transform: scale(1.1); box-shadow: 0 0 20px #ff3b30;} 100% {transform: scale(1);} }
+
+        /* شاشة المكالمة المحترفة */
+        #call-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 2000; flex-direction: column; }
+        #video-container { width: 100%; height: 100%; position: relative; }
+        #remoteVideo { width: 100%; height: 100%; object-fit: cover; background: #000; }
+        #localVideo { width: 100px; height: 150px; position: absolute; top: 30px; right: 20px; border: 2px solid rgba(255,255,255,0.5); border-radius: 12px; z-index: 2010; transform: scaleX(-1); object-fit: cover; }
+        
+        .call-info { position: absolute; top: 100px; width: 100%; text-align: center; z-index: 2020; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+        .call-info h2 { font-size: 28px; margin-bottom: 10px; }
+        
+        .call-ui-overlay { position: absolute; bottom: 60px; width: 100%; display: flex; justify-content: center; gap: 40px; z-index: 2030; }
+        .c-btn { width: 65px; height: 65px; border-radius: 50%; border: none; font-size: 28px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .v-accept { background: #4cd964; animation: bounce 1.5s infinite; }
+        .v-decline { background: #ff3b30; }
+        @keyframes bounce { 0%, 100% {transform: translateY(0);} 50% {transform: translateY(-10px);} }
+
+        #prog-line { height: 3px; background: var(--p-dark); width: 0%; position: absolute; top: 0; left: 0; z-index: 100; transition: 0.3s; }
+        
+        /* تحسينات الوسائط في الدردشة */
+        audio { height: 35px; width: 200px; }
+        img, video { border-radius: 12px; max-width: 100%; display: block; margin-top: 5px; }
+    </style>
 </head>
-<body class="h-full m-0" dir="rtl">
+<body onload="askName()">
 
-    <div id="calc-screen" class="flex flex-col items-center justify-end h-full pb-10 bg-black absolute inset-0 z-[100]">
-        <div id="calc-display" class="text-white text-7xl w-full max-w-[350px] text-right px-6 mb-5 overflow-hidden">0</div>
-        <div class="grid grid-cols-4 gap-3 w-full max-w-[350px] px-2">
-            <div class="calc-btn bg-gray-400 text-black" onclick="clearCalc()">AC</div>
-            <div class="calc-btn bg-gray-400 text-black">+/-</div>
-            <div class="calc-btn bg-gray-400 text-black">%</div>
-            <div class="calc-btn calc-orange">÷</div>
-            <div class="calc-btn" onclick="pressCalc('7')">7</div>
-            <div class="calc-btn" onclick="pressCalc('8')">8</div>
-            <div class="calc-btn" onclick="pressCalc('9')">9</div>
-            <div class="calc-btn calc-orange">×</div>
-            <div class="calc-btn" onclick="pressCalc('4')">4</div>
-            <div class="calc-btn" onclick="pressCalc('5')">5</div>
-            <div class="calc-btn" onclick="pressCalc('6')">6</div>
-            <div class="calc-btn calc-orange">-</div>
-            <div class="calc-btn" onclick="pressCalc('1')">1</div>
-            <div class="calc-btn" onclick="pressCalc('2')">2</div>
-            <div class="calc-btn" onclick="pressCalc('3')">3</div>
-            <div class="calc-btn calc-orange">+</div>
-            <div class="calc-btn col-span-2 w-auto rounded-full px-8 justify-start" onclick="pressCalc('0')">0</div>
-            <div class="calc-btn">.</div>
-            <div class="calc-btn calc-orange" onclick="checkCode()">=</div>
+<div id="calc-screen">
+    <div id="display">0</div>
+    <div class="buttons">
+        <button class="btn gray" onclick="ad('')">AC</button><button class="btn gray">±</button><button class="btn gray">%</button><button class="btn orange" onclick="ad('/')">÷</button>
+        <button class="btn" onclick="ad('7')">7</button><button class="btn" onclick="ad('8')">8</button><button class="btn" onclick="ad('9')">9</button><button class="btn orange" onclick="ad('*')">×</button>
+        <button class="btn" onclick="ad('4')">4</button><button class="btn" onclick="ad('5')">5</button><button class="btn" onclick="ad('6')">6</button><button class="btn orange" onclick="ad('-')">−</button>
+        <button class="btn" onclick="ad('1')">1</button><button class="btn" onclick="ad('2')">2</button><button class="btn" onclick="ad('3')">3</button><button class="btn orange" onclick="ad('+')">+</button>
+        <button class="btn zero" onclick="ad('0')">0</button><button class="btn" onclick="ad('.')">.</button><button class="btn orange" onclick="calc()">=</button>
+    </div>
+</div>
+
+<div id="chat-ui">
+    <div id="prog-line"></div>
+    <div id="layer-bg"></div>
+    <div class="header">
+        <span onclick="if(confirm('هل تريد مسح جميع الرسائل؟')) db.ref('chat').remove()" style="cursor:pointer; font-size:22px;">🗑️</span>
+        <div class="header-title">
+            <div style="font-weight:bold; font-size:18px; letter-spacing: 1px;">Nasro VIP Pro</div>
+            <div id="typing-status"></div>
+        </div>
+        <div class="bottom-icons">
+            <span class="icon-item" onclick="startCall('voice')">📞</span>
+            <span class="icon-item" onclick="startCall('video')">📹</span>
         </div>
     </div>
 
-    <div id="app-content" class="hidden h-full">
-        <div id="SignUp" class="w-full h-full absolute inset-0 bg-[#111] flex flex-col items-center justify-center p-6 z-50">
-            <div class="bg-white p-8 rounded-2xl w-full max-w-sm flex flex-col gap-4 text-black">
-                <h2 class="text-2xl font-bold text-center text-[#075e54]">Nasro VIP</h2>
-                <input type="text" id="myUserId" placeholder="أدخل اسمك المستعار..." class="w-full p-3 rounded-lg border-2 border-gray-300 outline-none focus:border-[#075e54] text-center">
-                <button onclick="startConnection()" class="bg-[#075e54] w-full py-3 rounded-lg text-white font-bold hover:bg-[#128c7e] transition"> دخول </button>
+    <div id="messages"></div>
+
+    <div class="footer">
+        <div class="input-area">
+            <div class="input-box">
+                <input type="text" id="mIn" placeholder="اكتب رسالة..." oninput="reportTyping()" onkeypress="if(event.key==='Enter') sendMsg()">
             </div>
-        </div>
-
-        <div id="main-ui" class="hidden h-full flex flex-col bg-[#e5ddd5] relative">
-            <div id="StartChat" class="absolute inset-0 bg-[#111] flex flex-col items-center justify-center p-6 z-40">
-                <div class="bg-white p-8 rounded-2xl w-full max-w-sm flex flex-col gap-4 text-black">
-                    <input type="text" id="remoteUserId" placeholder="اسم الشخص الذي تطلبه..." class="w-full p-3 rounded-lg border-2 border-gray-300 outline-none text-center">
-                    <button onclick="connectToRemoteUser()" class="bg-[#075e54] w-full py-3 rounded-lg text-white font-bold"> ابدأ المحادثة </button>
-                </div>
+            <div class="bottom-icons" id="iconGroup">
+                <label class="icon-item">🎬<input type="file" accept="video/*" hidden onchange="upFile(this,'vid')"></label>
+                <label class="icon-item">📷<input type="file" accept="image/*" hidden onchange="upFile(this,'img')"></label>
             </div>
-
-            <div id="chat" class="hidden h-full flex flex-col w-full max-w-[600px] m-auto bg-[#efeae2] shadow-2xl relative">
-                <div class="px-4 py-3 flex items-center text-white bg-[#075e54] shadow-md">
-                    <p id="connectionID" class="text-lg font-bold flex-1 text-right"></p>
-                    <div class="flex gap-4">
-                        <button onclick="call('Audio')" class="text-xl">📞</button>
-                        <button onclick="call('Video')" class="text-xl">📹</button>
-                    </div>
-                </div>
-
-                <div id="messages" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')]"></div>
-                
-                <div class="bg-[#f0f2f5] p-3 flex flex-col gap-2 border-t border-gray-300">
-                    <div class="flex items-center gap-2">
-                        <input type="text" id="message" placeholder="اكتب رسالة..." class="flex-1 p-3 rounded-full bg-white text-black outline-none shadow-sm">
-                        <button id="voiceBtn" class="w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center shadow-md active:scale-90 transition">🎤</button>
-                        <button onclick="sendMessage()" class="w-12 h-12 bg-[#075e54] text-white rounded-full flex items-center justify-center shadow-md">➤</button>
-                    </div>
-                    <div class="flex justify-around py-1 text-xs text-gray-600 bg-white rounded-full border border-gray-200">
-                        <label class="flex items-center gap-1 cursor-pointer">📷 صور <input type="file" accept="image/*" class="hidden" onchange="sendFile(this, 'image')"></label>
-                        <label class="flex items-center gap-1 cursor-pointer">🎬 فيديو <input type="file" accept="video/*" class="hidden" onchange="sendFile(this, 'video')"></label>
-                        <label class="flex items-center gap-1 cursor-pointer">📁 ملف <input type="file" class="hidden" onchange="sendFile(this, 'file')"></label>
-                    </div>
-                </div>
-            </div>
+            <button id="sendBtn" style="display:none;" onclick="sendMsg()">➤</button>
+            <button id="recBtn" onclick="toggleMic()">🎤</button>
         </div>
     </div>
+</div>
 
-    <div id="Ringing_Screen" class="hidden fixed inset-0 bg-[#075e54] z-[200] flex flex-col items-center justify-center text-white">
-        <audio id="ringtone" src="https://www.soundjay.com/phone/phone-calling-1.mp3" loop></audio>
-        <div class="w-32 h-32 bg-white/20 rounded-full flex items-center justify-center mb-8 animate-pulse text-6xl">👤</div>
-        <h1 id="ringingText" class="text-2xl mb-12 font-bold">اتصال وارد...</h1>
-        <div class="flex gap-12">
-            <button class="bg-green-500 w-20 h-20 rounded-full text-3xl shadow-lg" id="acceptCallButton">✅</button>
-            <button class="bg-red-500 w-20 h-20 rounded-full text-3xl shadow-lg" onclick="closeRingingScreen()">❌</button>
+<div id="call-screen">
+    <div class="call-info">
+        <h2 id="caller-name">اتصال...</h2>
+        <p id="call-status">جاري الربط</p>
+    </div>
+    <div id="video-container">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <video id="localVideo" autoplay playsinline muted></video>
+        <div class="call-ui-overlay">
+            <button class="c-btn v-accept" id="answerBtn" onclick="acceptCall()">✅</button>
+            <button class="c-btn v-decline" onclick="endCall()">❌</button>
         </div>
     </div>
-
-    <div id="call_screen" class="hidden fixed inset-0 bg-black z-[200] flex flex-col">
-        <div class="flex-1 relative bg-gray-900">
-            <video id="remote_user_video" class="w-full h-full object-cover" autoplay playsinline></video>
-            <video id="my_video" class="absolute top-4 right-4 w-28 h-40 border-2 border-white rounded-xl object-cover shadow-2xl" muted autoplay playsinline></video>
-        </div>
-        <div class="bg-black/50 p-8 flex justify-center border-t border-white/10">
-            <button class="bg-red-600 px-10 py-4 rounded-full text-white font-bold shadow-xl" onclick="closeCall()">إنهاء المكالمة</button>
-        </div>
-        <audio id="remote_user_audio" autoplay></audio>
-    </div>
+</div>
 
 <script>
-    var peerConnection, RemoteUserConnection, myStream, CallConnection;
-    var mediaRecorder, audioChunks = [];
-    var calcInput = "";
+    // تكوين Firebase الخاص بك
+    const firebaseConfig = {
+        apiKey: "AIzaSyBAA401qciK1eEzZKpZgD5P7D3rPENtoJA",
+        authDomain: "ndndkk-a876d.firebaseapp.com",
+        databaseURL: "https://ndndkk-a876d-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "ndndkk-a876d",
+        storageBucket: "ndndkk-a876d.firebasestorage.app",
+        messagingSenderId: "578615168170",
+        appId: "1:578615168170:web:b65b54531115f49855d4d3",
+        measurementId: "G-JXT0ND77KS"
+    };
 
-    // 1. الآلة الحاسبة
-    function pressCalc(num) { calcInput += num; document.getElementById("calc-display").innerText = calcInput; }
-    function clearCalc() { calcInput = ""; document.getElementById("calc-display").innerText = "0"; }
-    function checkCode() {
-        if (calcInput === "123332") {
-            document.getElementById("calc-screen").classList.add("hidden");
-            document.getElementById("app-content").classList.remove("hidden");
-        } else { alert("الرمز خاطئ"); clearCalc(); }
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    let user = localStorage.getItem("chat_user") || ""; 
+    let exp = "", typingTimeout, mediaRecorder, audioChunks = [];
+    let localStream, peerConn;
+    const rtcConfig = {'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]};
+
+    function askName() { if(!user) { user = prompt("أدخل اسمك المستعار للدخول:") || "مستخدم جديد"; localStorage.setItem("chat_user", user); } }
+    
+    function ad(v) { 
+        exp = (v === '') ? '' : exp + v; 
+        document.getElementById('display').innerText = exp || "0"; 
     }
 
-    // 2. نظام الـ Peer
-    function startConnection(){
-        const id = document.getElementById("myUserId").value.trim();
-        if(!id) return;
-        peerConnection = new Peer(id);
-        peerConnection.on("open", () => {
-            document.getElementById("SignUp").classList.add("hidden");
-            document.getElementById("main-ui").classList.remove("hidden");
+    function calc() { 
+        if(exp === "123332") { // الكود السري للدخول
+            document.getElementById('calc-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('calc-screen').style.display = 'none';
+                document.getElementById('chat-ui').style.display = 'flex';
+                initChat();
+            }, 500);
+        } else {
+            try { exp = eval(exp).toString(); document.getElementById('display').innerText = exp; } catch(e) { exp = ''; }
+        }
+    }
+
+    function reportTyping() {
+        let val = document.getElementById('mIn').value.trim();
+        document.getElementById('sendBtn').style.display = val ? 'flex' : 'none';
+        document.getElementById('recBtn').style.display = val ? 'none' : 'flex';
+        document.getElementById('iconGroup').style.display = val ? 'none' : 'flex';
+        db.ref('typing/' + user).set(true);
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => db.ref('typing/' + user).remove(), 2000);
+    }
+
+    function initChat() {
+        // الاستماع للرسائل
+        db.ref("chat").limitToLast(50).on("child_added", s => {
+            let m = s.val();
+            let d = document.createElement("div"); 
+            d.className = "bubble " + (m.u === user ? "me" : "other");
+            let html = `<b style="font-size:12px; color: ${m.u===user?'#fff':'#ff1f4b'}">${m.u}</b><br>`;
+            if(m.t==='img') html += `<img src="${m.v}" onclick="window.open(this.src)">`;
+            else if(m.t==='vid') html += `<video controls src="${m.v}"></video>`;
+            else if(m.t==='audio') html += `<audio controls src="${m.v}"></audio>`;
+            else html += m.v;
+            d.innerHTML = html + `<div style="font-size:9px; opacity:0.7; text-align:left; margin-top:5px;">${m.time}</div>`;
+            document.getElementById("messages").appendChild(d);
+            document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
         });
-        peerConnection.on("connection", gotConnection);
-        peerConnection.on("call", (call) => ringing(call));
-    }
 
-    function connectToRemoteUser(){
-        const rId = document.getElementById("remoteUserId").value.trim();
-        if(!rId) return;
-        gotConnection(peerConnection.connect(rId));
-    }
+        // حالة الكتابة
+        db.ref('typing').on('value', s => {
+            let typers = [];
+            s.forEach(c => { if(c.key !== user) typers.push(c.key); });
+            document.getElementById('typing-status').innerText = typers.length ? "✍️ " + typers.join(' و ') + " يكتب الآن..." : "";
+        });
 
-    function gotConnection(conn) {
-        RemoteUserConnection = conn;
-        RemoteUserConnection.on("open", () => {
-            document.getElementById("StartChat").classList.add("hidden");
-            document.getElementById("chat").classList.remove("hidden");
-            document.getElementById("connectionID").innerText = "المحادثة مع: " + RemoteUserConnection.peer;
-            RemoteUserConnection.on("data", (data) => displayMessage('user', data.content, data.type));
+        // الاستماع للمكالمات الواردة
+        db.ref('calls/' + user).on('value', async s => {
+            let data = s.val();
+            if(!data) return;
+
+            if(data.type === 'offer') {
+                document.getElementById('caller-name').innerText = data.from;
+                document.getElementById('call-status').innerText = "مكالمة واردة...";
+                document.getElementById('call-screen').style.display = 'flex';
+                document.getElementById('answerBtn').style.display = 'flex';
+            } else if (data.answer && peerConn) {
+                await peerConn.setRemoteDescription(new RTCSessionDescription(data.answer));
+            } else if (data.ice && peerConn) {
+                db.ref('calls/' + user + '/ice').once('value', snapshot => {
+                    snapshot.forEach(c => {
+                        peerConn.addIceCandidate(new RTCIceCandidate(c.val())).catch(e => {});
+                    });
+                });
+            }
         });
     }
 
-    // 3. نظام الصوت المطور (الإصلاح الجذري هنا)
-    async function setupVoice() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            
-            mediaRecorder.ondataavailable = e => { if(e.data.size > 0) audioChunks.push(e.data); };
-            
-            mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = () => {
-                    const base64Audio = reader.result;
-                    RemoteUserConnection.send({ type: 'audio', content: base64Audio });
-                    displayMessage('me', base64Audio, 'audio');
-                };
-                audioChunks = [];
-            };
-
-            const voiceBtn = document.getElementById("voiceBtn");
-            voiceBtn.onmousedown = (e) => { 
-                e.preventDefault();
-                audioChunks = [];
-                mediaRecorder.start(); 
-                voiceBtn.classList.replace("bg-red-600", "bg-green-500");
-                voiceBtn.innerText = "⏺";
-            };
-            voiceBtn.onmouseup = (e) => { 
-                e.preventDefault();
-                mediaRecorder.stop(); 
-                voiceBtn.classList.replace("bg-green-500", "bg-red-600");
-                voiceBtn.innerText = "🎤";
-            };
-            // دعم الجوال
-            voiceBtn.ontouchstart = (e) => { e.preventDefault(); voiceBtn.onmousedown(e); };
-            voiceBtn.ontouchend = (e) => { e.preventDefault(); voiceBtn.onmouseup(e); };
-
-        } catch (err) { console.error("الميكروفون غير متاح", err); }
-    }
-    setupVoice();
-
-    // 4. إرسال المحتوى
-    function sendMessage() {
-        const msg = document.getElementById("message").value.trim();
-        if(!msg) return;
-        RemoteUserConnection.send({ type: 'text', content: msg });
-        displayMessage('me', msg, 'text');
-        document.getElementById("message").value = "";
-    }
-
-    function sendFile(input, type) {
-        const file = input.files[0]; if(!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            RemoteUserConnection.send({ type: type, content: reader.result });
-            displayMessage('me', reader.result, type);
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function displayMessage(sender, content, type) {
-        const container = document.getElementById("messages");
-        const div = document.createElement('div');
-        div.className = sender === 'me' ? 'me self-end bg-[#e4ffc9] text-black p-3 rounded-lg shadow-sm relative max-w-[85%]' : 'user self-start bg-white text-black p-3 rounded-lg shadow-sm relative max-w-[85%]';
+    // منطق الاتصال المحسن
+    async function startCall(mode) {
+        let to = prompt("أدخل اسم الشخص الذي تريد الاتصال به:"); 
+        if(!to) return;
         
-        if (type === 'text') div.innerText = content;
-        else if (type === 'image') div.innerHTML = `<img src="${content}" class="max-w-full rounded-md shadow-sm">`;
-        else if (type === 'video') div.innerHTML = `<video src="${content}" controls class="max-w-full rounded-md"></video>`;
-        else if (type === 'audio') div.innerHTML = `<audio src="${content}" controls class="max-w-full"></audio>`;
-        else if (type === 'file') div.innerHTML = `<a href="${content}" download class="text-blue-700 font-bold">📁 تحميل ملف</a>`;
+        document.getElementById('caller-name').innerText = to;
+        document.getElementById('call-status').innerText = "جاري الاتصال...";
+        document.getElementById('call-screen').style.display = 'flex';
+        document.getElementById('answerBtn').style.display = 'none';
 
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
-    }
+        localStream = await navigator.mediaDevices.getUserMedia({video: mode==='video', audio: true});
+        document.getElementById('localVideo').srcObject = localStream;
 
-    // 5. المكالمات
-    function call(type) {
-        navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'Video' }).then(stream => {
-            myStream = stream;
-            const call = peerConnection.call(RemoteUserConnection.peer, stream, { metadata: { streamType: type } });
-            handleCall(call);
-        });
-    }
+        peerConn = new RTCPeerConnection(rtcConfig);
+        localStream.getTracks().forEach(t => peerConn.addTrack(t, localStream));
 
-    function ringing(call) {
-        document.getElementById("Ringing_Screen").classList.remove("hidden");
-        document.getElementById("ringtone").play();
-        document.getElementById("acceptCallButton").onclick = () => {
-            navigator.mediaDevices.getUserMedia({ audio: true, video: call.metadata.streamType === 'Video' }).then(stream => {
-                myStream = stream;
-                call.answer(stream);
-                handleCall(call);
-                closeRingingScreen();
-            });
+        peerConn.onicecandidate = e => { 
+            if(e.candidate) db.ref('calls/' + to + '/ice').push(e.candidate.toJSON()); 
         };
+        peerConn.ontrack = e => { 
+            document.getElementById('remoteVideo').srcObject = e.streams[0];
+            document.getElementById('call-status').innerText = "متصل";
+        };
+
+        const offer = await peerConn.createOffer();
+        await peerConn.setLocalDescription(offer);
+        db.ref('calls/' + to).set({type:'offer', offer: offer, from: user, mode: mode});
     }
 
-    function handleCall(call) {
-        CallConnection = call;
-        document.getElementById("call_screen").classList.remove("hidden");
-        call.on("stream", (remoteStream) => {
-            document.getElementById("remote_user_video").srcObject = remoteStream;
-            document.getElementById("my_video").srcObject = myStream;
-            document.getElementById("remote_user_audio").srcObject = remoteStream;
-        });
+    async function acceptCall() {
+        document.getElementById('answerBtn').style.display = 'none';
+        document.getElementById('call-status').innerText = "جاري الربط...";
+        
+        let snap = await db.ref('calls/' + user).once('value');
+        let callData = snap.val();
+        
+        localStream = await navigator.mediaDevices.getUserMedia({video: callData.mode === 'video', audio: true});
+        document.getElementById('localVideo').srcObject = localStream;
+
+        peerConn = new RTCPeerConnection(rtcConfig);
+        localStream.getTracks().forEach(t => peerConn.addTrack(t, localStream));
+
+        peerConn.onicecandidate = e => { 
+            if(e.candidate) db.ref('calls/' + callData.from + '/ice').push(e.candidate.toJSON()); 
+        };
+        peerConn.ontrack = e => { 
+            document.getElementById('remoteVideo').srcObject = e.streams[0];
+            document.getElementById('call-status').innerText = "متصل";
+        };
+
+        await peerConn.setRemoteDescription(new RTCSessionDescription(callData.offer));
+        const answer = await peerConn.createAnswer();
+        await peerConn.setLocalDescription(answer);
+        db.ref('calls/' + callData.from).update({answer: answer});
     }
 
-    function closeCall() { if(CallConnection) CallConnection.close(); document.getElementById("call_screen").classList.add("hidden"); if(myStream) myStream.getTracks().forEach(t => t.stop()); }
-    function closeRingingScreen() { document.getElementById("Ringing_Screen").classList.add("hidden"); document.getElementById("ringtone").pause(); }
+    function endCall() { 
+        db.ref('calls/' + user).remove(); 
+        closeCall(); 
+    }
+
+    function closeCall() { 
+        if(localStream) localStream.getTracks().forEach(t => t.stop());
+        if(peerConn) peerConn.close();
+        document.getElementById('call-screen').style.display = 'none';
+        document.getElementById('remoteVideo').srcObject = null;
+    }
+
+    function sendMsg() {
+        let v = document.getElementById('mIn').value.trim();
+        if(v) { 
+            db.ref("chat").push({u:user, v:v, t:'txt', time:getTime()}); 
+            document.getElementById('mIn').value = ""; 
+            reportTyping(); 
+        }
+    }
+
+    async function toggleMic() {
+        if (!mediaRecorder || mediaRecorder.state === "inactive") {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream); 
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const r = new FileReader(); r.readAsDataURL(blob);
+                    r.onloadend = () => db.ref("chat").push({u:user, v:r.result, t:'audio', time:getTime()});
+                    stream.getTracks().forEach(t => t.stop());
+                };
+                mediaRecorder.start(); 
+                document.getElementById('recBtn').classList.add('recording');
+            } catch(e) { alert("يرجى السماح بالوصول للميكروفون"); }
+        } else {
+            mediaRecorder.stop(); 
+            document.getElementById('recBtn').classList.remove('recording');
+        }
+    }
+
+    function upFile(el, type) {
+        let f = el.files[0]; if(!f) return;
+        if(f.size > 20 * 1024 * 1024) { alert("الملف كبير جداً (الأقصى 20 ميجا)"); return; }
+        
+        let r = new FileReader();
+        r.onprogress = (e) => { 
+            if(e.lengthComputable) {
+                let percent = Math.round((e.loaded / e.total) * 100);
+                document.getElementById('prog-line').style.width = percent + "%";
+            } 
+        };
+        r.onload = (e) => { 
+            db.ref("chat").push({ u: user, v: e.target.result, t: type, time: getTime() })
+            .then(() => { document.getElementById('prog-line').style.width = "0%"; el.value = ""; });
+        };
+        r.readAsDataURL(f);
+    }
+
+    function getTime() { 
+        return new Date().toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}); 
+    }
 </script>
 </body>
-                        </html>
+</html>
